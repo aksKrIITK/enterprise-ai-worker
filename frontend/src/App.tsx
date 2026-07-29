@@ -30,7 +30,11 @@ export const App: React.FC = () => {
   }, [userContext.tenantId]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-dark-bg text-slate-100 overflow-hidden font-sans">
+    <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden font-sans relative">
+      {/* Background Ambient Glow Accents */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
+
       <Header
         userContext={userContext}
         setUserContext={setUserContext}

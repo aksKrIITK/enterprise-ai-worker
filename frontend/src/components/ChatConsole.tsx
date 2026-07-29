@@ -142,7 +142,7 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* Main Chat Stream Container */}
-      <div className="flex-1 flex flex-col justify-between bg-dark-bg">
+      <div className="flex-1 flex flex-col justify-between bg-slate-50">
         {/* Messages Feed */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {messages.map((msg) => (
@@ -155,8 +155,8 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
               <div
                 className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
                   msg.role === 'user'
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white'
+                    ? 'bg-indigo-600 text-white shadow-indigo-500/20'
+                    : 'bg-slate-900 text-white shadow-slate-900/20'
                 }`}
               >
                 {msg.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
@@ -165,31 +165,33 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
               <div
                 className={`flex-1 rounded-2xl p-4 border text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-brand-600/10 border-brand-500/30 text-slate-100'
-                    : 'glass-panel text-slate-200'
+                    ? 'bg-indigo-600 border-indigo-700 text-white font-medium shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-800 shadow-xs'
                 }`}
               >
                 <div className="whitespace-pre-wrap">{msg.content}</div>
 
                 {/* Citations section */}
                 {msg.citations && msg.citations.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-dark-border space-y-2">
-                    <div className="text-xs font-semibold text-cyan-400 flex items-center space-x-1.5">
-                      <FileText className="w-3.5 h-3.5" />
+                  <div className="mt-4 pt-3 border-t border-slate-200 space-y-2">
+                    <div className="text-xs font-semibold text-slate-700 flex items-center space-x-1.5">
+                      <FileText className="w-3.5 h-3.5 text-indigo-600" />
                       <span>Cited Sources ({msg.citations.length})</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {msg.citations.map((cite, i) => (
-                        <div key={i} className="p-2.5 rounded-lg bg-dark-card border border-dark-border text-xs">
-                          <div className="font-semibold text-indigo-300 truncate">{cite.title}</div>
-                          <div className="text-slate-400 text-[11px] mt-1 line-clamp-2">{cite.snippet}</div>
+                        <div key={i} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs shadow-xs">
+                          <div className="font-semibold text-indigo-700 truncate">{cite.title}</div>
+                          <div className="text-slate-600 text-[11px] mt-1 line-clamp-2">{cite.snippet}</div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <div className="mt-2 text-[10px] text-slate-500 text-right">{msg.timestamp}</div>
+                <div className={`mt-2 text-[10px] text-right ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                  {msg.timestamp}
+                </div>
               </div>
             </div>
           ))}
@@ -197,9 +199,9 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
         </div>
 
         {/* Quick Prompts Bar */}
-        <div className="px-6 py-2 border-t border-dark-border bg-dark-sidebar/40 flex items-center space-x-2 overflow-x-auto">
-          <span className="text-xs font-medium text-slate-400 flex items-center space-x-1 shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+        <div className="px-6 py-3 border-t border-slate-200 bg-slate-100/90 flex items-center space-x-2 overflow-x-auto">
+          <span className="text-xs font-medium text-slate-500 flex items-center space-x-1 shrink-0">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
             <span>Try:</span>
           </span>
           {quickPrompts.map((prompt, idx) => (
@@ -207,7 +209,7 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
               key={idx}
               onClick={() => handleSend(prompt)}
               disabled={isStreaming}
-              className="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-slate-300 hover:text-white hover:border-brand-500/50 transition-all shrink-0"
+              className="px-3.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0 shadow-xs font-medium"
             >
               {prompt}
             </button>
@@ -215,13 +217,13 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
         </div>
 
         {/* Chat Input Bar */}
-        <div className="p-4 border-t border-dark-border bg-dark-sidebar">
+        <div className="p-4 border-t border-slate-200 bg-white">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="flex items-center space-x-3 bg-dark-bg border border-dark-border rounded-xl px-4 py-2.5 focus-within:border-brand-500 transition-all"
+            className="flex items-center space-x-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all"
           >
             <input
               type="text"
@@ -229,12 +231,12 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask Enterprise AI Worker to search docs, write SQL, draft emails, or open PRs..."
               disabled={isStreaming}
-              className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
             />
             <button
               type="submit"
               disabled={!input.trim() || isStreaming}
-              className="w-9 h-9 rounded-lg bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-500/20"
+              className="w-9 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-500/20"
             >
               <Send className="w-4 h-4" />
             </button>
@@ -243,32 +245,32 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({ userContext, onNewAppr
       </div>
 
       {/* Live Agent Reasoning Trace Panel */}
-      <div className="w-80 border-l border-dark-border bg-dark-sidebar p-4 hidden lg:flex flex-col space-y-4">
-        <div className="flex items-center justify-between border-b border-dark-border pb-3">
-          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-            <Sparkles className="w-4 h-4 text-indigo-400" />
+      <div className="w-80 border-l border-slate-200 bg-slate-100/90 p-4 hidden lg:flex flex-col space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
             <span>Agent Execution Trace</span>
           </div>
-          {isStreaming && <div className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />}
+          {isStreaming && <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />}
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-1">
           {agentTraces.length === 0 ? (
-            <div className="text-center py-12 text-slate-500 text-xs">
+            <div className="text-center py-12 text-slate-400 text-xs">
               No active agent traces. Send a prompt to watch the Planner and Specialist agents execute in real time.
             </div>
           ) : (
             agentTraces.map((trace, idx) => (
-              <div key={idx} className="p-3 rounded-xl bg-dark-card border border-dark-border text-xs space-y-1.5">
+              <div key={idx} className="p-3 rounded-xl bg-white border border-slate-200 text-xs space-y-1.5 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold uppercase text-[10px] tracking-wider px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span className="font-semibold uppercase text-[10px] tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
                     {trace.agent}
                   </span>
-                  <span className="text-[10px] text-slate-500">{trace.timestamp}</span>
+                  <span className="text-[10px] text-slate-400">{trace.timestamp}</span>
                 </div>
-                <p className="text-slate-300 text-[11px] leading-relaxed">{trace.message}</p>
+                <p className="text-slate-700 text-[11px] leading-relaxed">{trace.message}</p>
                 {trace.trace_id && (
-                  <div className="text-[9px] text-slate-500 font-mono truncate">
+                  <div className="text-[9px] text-slate-400 font-mono truncate">
                     Trace: {trace.trace_id}
                   </div>
                 )}

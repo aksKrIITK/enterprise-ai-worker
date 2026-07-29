@@ -20,9 +20,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 border-r border-dark-border bg-dark-sidebar flex flex-col justify-between py-6 px-4 shrink-0">
+    <aside className="w-64 border-r border-slate-200 bg-slate-100/90 flex flex-col justify-between py-6 px-4 shrink-0">
       <div className="space-y-6">
-        <div className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
           Navigation
         </div>
         <nav className="space-y-1.5">
@@ -35,12 +35,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-brand-600 text-white shadow-lg shadow-indigo-500/25'
-                    : 'text-slate-400 hover:text-white hover:bg-dark-hover'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge !== undefined && item.badge > 0 && (
@@ -55,9 +55,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Security Isolation Status Pill */}
-      <div className="p-3.5 rounded-xl bg-dark-card border border-dark-border space-y-2">
-        <div className="flex items-center space-x-2 text-xs font-medium text-slate-300">
-          <div className="w-2 h-2 rounded-full bg-emerald-400" />
+      <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2 shadow-xs">
+        <div className="flex items-center space-x-2 text-xs font-semibold text-slate-800">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Tenant Isolation Active</span>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
