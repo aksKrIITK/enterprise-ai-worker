@@ -4,6 +4,7 @@ import com.enterprise.ai.gateway.audit.AuditLogService;
 import com.enterprise.ai.gateway.auth.JwtTokenProvider;
 import com.enterprise.ai.gateway.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -24,6 +25,10 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Controller proxying streaming chat SSE requests from clients to the backend Python Orchestration service.
+ */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
@@ -36,25 +41,42 @@ public class OrchestratorProxyController {
     private final AuditLogService auditLogService;
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
+    /**
+     * Proxies streaming chat completion SSE connection from gateway to Python orchestrator backend.
+     * 
+     * @param requestBody Chat request parameters map.
+     * @return SseEmitter instance for streaming response events.
+     */
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChat(@RequestBody Map<String, Object> requestBody) {
         String tenantId = TenantContext.getTenantId();
         String userId = TenantContext.getUserId();
         String role = TenantContext.getUserRole();
 
+        String conversationId = (String) requestBody.get("conversation_id");
+        log.info("Initiating streaming chat proxy for conversation [{}] (tenant: {}, user: {})", conversationId, tenantId, userId);
+
         // Audit Log entry
-        auditLogService.logEvent(
-                UUID.fromString(tenantId),
-                UUID.fromString(userId),
-                "CHAT_STREAM_INITIATED",
-                "CONVERSATION",
-                (String) requestBody.get("conversation_id"),
-                null,
-                requestBody.toString()
-        );
+        try {
+            auditLogService.logEvent(
+                    UUID.fromString(tenantId),
+                    UUID.fromString(userId),
+                    "CHAT_STREAM_INITIATED",
+                    "CONVERSATION",
+                    conversationId,
+                    null,
+                    requestBody.toString()
+            );
+        } catch (Exception auditErr) {
+            log.error("Failed to write audit log entry for chat stream: {}", auditErr.getMessage(), auditErr);
+        }
 
         String serviceToken = tokenProvider.generateInternalServiceToken(tenantId, userId, role);
         SseEmitter emitter = new SseEmitter(180000L); // 3 minutes timeout
+
+        emitter.onTimeout(() -> log.warn("SSE emitter timed out for conversation [{}]", conversationId));
+        emitter.onError(ex -> log.error("SSE emitter error for conversation [{}]: {}", conversationId, ex.getMessage()));
+        emitter.onCompletion(() -> log.debug("SSE emitter completed for conversation [{}]", conversationId));
 
         executor.execute(() -> {
             try {
@@ -70,7 +92,16 @@ public class OrchestratorProxyController {
                         .POST(HttpRequest.BodyPublishers.ofString(requestJson))
                         .build();
 
+                log.debug("Sending SSE HTTP POST to upstream orchestrator: {}", httpRequest.uri());
                 HttpResponse<InputStream> httpResponse = client.send(httpRequest, HttpResponse.BodyHandlers.ofInputStream());
+
+                if (httpResponse.statusCode() >= 400) {
+                    log.error("Upstream orchestrator returned non-success status code [{}] for conversation [{}]", 
+                            httpResponse.statusCode(), conversationId);
+                    emitter.send(SseEmitter.event().name("error").data("Upstream orchestrator error: " + httpResponse.statusCode()));
+                    emitter.complete();
+                    return;
+                }
 
                 try (InputStream inputStream = httpResponse.body()) {
                     byte[] buffer = new byte[1024];
@@ -92,8 +123,11 @@ public class OrchestratorProxyController {
                         }
                     }
                 }
+                log.info("Successfully completed streaming response from orchestrator for conversation [{}]", conversationId);
                 emitter.complete();
             } catch (Exception e) {
+                log.error("Error encountered while streaming from orchestrator backend for conversation [{}]: {}", 
+                        conversationId, e.getMessage(), e);
                 emitter.completeWithError(e);
             }
         });
@@ -101,3 +135,4 @@ public class OrchestratorProxyController {
         return emitter;
     }
 }
+
