@@ -25,6 +25,9 @@ class ApprovalRequestModel(BaseModel):
     decided_at: Optional[str] = None
 
 
+import os
+import json
+
 class ApprovalManager:
     """
     Singleton Manager for human-in-the-loop approval requests and paused graph state checkpoints.
@@ -36,8 +39,32 @@ class ApprovalManager:
             cls._instance = super(ApprovalManager, cls).__new__(cls)
             cls._instance.requests = {}
             cls._instance.checkpoints = {}
+            cls._instance.storage_file = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "../../../approval_store_data.json")
+            )
+            cls._instance._load_from_storage()
             logger.info("Initialized ApprovalManager singleton instance.")
         return cls._instance
+
+    def _load_from_storage(self):
+        try:
+            if os.path.exists(self.storage_file):
+                with open(self.storage_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.requests = {k: ApprovalRequestModel(**v) for k, v in data.items()}
+                logger.info("Loaded %d approval requests from persistent storage.", len(self.requests))
+        except Exception as err:
+            logger.error("Failed to load approval store: %s", err)
+
+    def _save_to_storage(self):
+        try:
+            os.makedirs(os.path.dirname(self.storage_file), exist_ok=True)
+            with open(self.storage_file, "w", encoding="utf-8") as f:
+                json.dump({k: v.model_dump() for k, v in self.requests.items()}, f, indent=2)
+            logger.debug("Saved %d approval requests to persistent storage.", len(self.requests))
+        except Exception as err:
+            logger.error("Failed to save approval store: %s", err)
+
 
     def create_approval_request(
         self,
@@ -72,6 +99,7 @@ class ApprovalManager:
         self.requests[request_id] = req
         if paused_state:
             self.checkpoints[request_id] = paused_state
+        self._save_to_storage()
 
         logger.info(
             "Created approval request: id=%s, action='%s', tenant='%s', agent='%s', risk='%s'",
@@ -108,6 +136,7 @@ class ApprovalManager:
         req.status = "approved"
         req.approver_id = approver_id
         req.decided_at = datetime.now(timezone.utc).isoformat()
+        self._save_to_storage()
         logger.info("Request id=%s marked as APPROVED by approver=%s", request_id, approver_id)
         return req
 
@@ -126,6 +155,7 @@ class ApprovalManager:
         req.approver_id = approver_id
         req.rejection_reason = reason
         req.decided_at = datetime.now(timezone.utc).isoformat()
+        self._save_to_storage()
         logger.info("Request id=%s marked as REJECTED by approver=%s (reason: %s)", request_id, approver_id, reason)
         return req
 
@@ -133,5 +163,7 @@ class ApprovalManager:
         """Clears all stored requests and checkpoints."""
         self.requests = {}
         self.checkpoints = {}
+        self._save_to_storage()
         logger.info("Cleared all approval requests and checkpoints from ApprovalManager.")
+
 
