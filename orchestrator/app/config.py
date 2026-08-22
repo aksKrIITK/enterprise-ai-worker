@@ -16,11 +16,39 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
+    # Infrastructure & Database
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "enterprise_ai_db"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres_password"
+    DATABASE_URL: Optional[str] = None
+
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    # External Integration API Keys
+    GITHUB_TOKEN: Optional[str] = None
+
+    JIRA_URL: Optional[str] = None
+    JIRA_USER_EMAIL: Optional[str] = None
+    JIRA_API_TOKEN: Optional[str] = None
+
+    SLACK_BOT_TOKEN: Optional[str] = None
+    SLACK_SIGNING_SECRET: Optional[str] = None
+
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REFRESH_TOKEN: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    @property
+    def get_database_url(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 
 settings = Settings()
+
