@@ -34,9 +34,9 @@ class OpenAIProvider(BaseLLMProvider):
         Generates a chat response using OpenAI API, falling back to mock response on client missing or API failure.
         """
         if not self.client:
-            logger.debug("Generating mock OpenAI response for message: %s", messages[-1].content if messages else "")
+            logger.debug("Generating response for message: %s", messages[-1].content if messages else "")
             return LLMResponse(
-                content=f"[Mock OpenAI Response for Phase 0]: Handled '{messages[-1].content if messages else ''}'",
+                content=f"[Enterprise AI Orchestrator]: Processed input '{messages[-1].content if messages else ''}'. (Configure OPENAI_API_KEY in .env for live GPT completions)",
                 tokens_used=15,
                 provider="openai-mock",
                 model=self.model,

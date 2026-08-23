@@ -28,7 +28,7 @@ class GeminiProvider(BaseLLMProvider):
     ) -> LLMResponse:
         if not self.client:
             return LLMResponse(
-                content=f"[Mock Gemini Response for Phase 0]: Handled '{messages[-1].content}'",
+                content=f"[Enterprise AI Orchestrator]: Processed input '{messages[-1].content if messages else ''}'. (Configure GEMINI_API_KEY in .env for live Gemini completions)",
                 tokens_used=15,
                 provider="gemini-mock",
                 model=self.model,
