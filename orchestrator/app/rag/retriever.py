@@ -8,28 +8,57 @@ from app.graph.state import Citation
 logger = logging.getLogger(__name__)
 
 
+import os
+import json
+
 class VectorStore:
-    """In-memory & DB vector store abstraction with strict tenant isolation and ACL filtering."""
+    """In-memory & persistent vector store abstraction with strict tenant isolation and ACL filtering."""
     _instance = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(VectorStore, cls).__new__(cls)
             cls._instance.chunks = []
+            cls._instance.storage_file = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "../../../vector_store_data.json")
+            )
+            cls._instance._load_from_storage()
         return cls._instance
 
+    def _load_from_storage(self):
+        try:
+            if os.path.exists(self.storage_file):
+                with open(self.storage_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.chunks = [DocumentChunk(**item) for item in data]
+                logger.info("Loaded %d document chunks from persistent storage (%s)", len(self.chunks), self.storage_file)
+        except Exception as err:
+            logger.error("Failed to load chunks from storage file: %s", err)
+
+    def _save_to_storage(self):
+        try:
+            os.makedirs(os.path.dirname(self.storage_file), exist_ok=True)
+            with open(self.storage_file, "w", encoding="utf-8") as f:
+                json.dump([chunk.model_dump() for chunk in self.chunks], f, indent=2)
+            logger.debug("Saved %d chunks to persistent storage.", len(self.chunks))
+        except Exception as err:
+            logger.error("Failed to save chunks to storage file: %s", err)
+
     def add_chunks(self, chunks: List[DocumentChunk]):
-        """Appends new document chunks to the in-memory store."""
+        """Appends new document chunks to the store and persists them."""
         if not chunks:
             return
         self.chunks.extend(chunks)
+        self._save_to_storage()
         logger.info("Added %d document chunks to VectorStore. Total chunks: %d", len(chunks), len(self.chunks))
 
     def clear(self):
-        """Clears all stored document chunks."""
+        """Clears all stored document chunks and storage."""
         count = len(self.chunks)
         self.chunks = []
+        self._save_to_storage()
         logger.info("Cleared VectorStore (removed %d chunks).", count)
+
 
     def cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
         """
