@@ -16,12 +16,21 @@ class LLMResponse(BaseModel):
 
 
 class BaseLLMProvider(ABC):
+    @property
+    def provider_name(self) -> str:
+        return self.__class__.__name__
+
+    @property
+    def model_name(self) -> str:
+        return "default"
+
     @abstractmethod
     async def generate_response(
         self,
         messages: List[LLMMessage],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[dict]] = None,
     ) -> LLMResponse:
         """Generate a complete completion response synchronously/awaitable."""
         pass

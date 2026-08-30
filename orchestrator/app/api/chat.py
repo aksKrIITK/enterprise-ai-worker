@@ -34,6 +34,12 @@ class ChatResponse(BaseModel):
     model: str
 
 
+from app.exceptions import AuthenticationError, ValidationError, GuardrailViolationError
+from app.guardrails import GuardrailPipeline
+
+guardrail_pipeline = GuardrailPipeline()
+
+
 def verify_service_token(x_service_token: Optional[str] = Header(None)) -> bool:
     """
     Validates inter-service communication secret token.
@@ -45,9 +51,8 @@ def verify_service_token(x_service_token: Optional[str] = Header(None)) -> bool:
         return True
     if x_service_token and x_service_token != settings.SERVICE_TO_SERVICE_SECRET:
         logger.warning("Service token verification failed for header: %s", x_service_token)
-        raise HTTPException(status_code=401, detail="Invalid or missing service token.")
+        raise AuthenticationError("Invalid or missing service token.")
     return True
-
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -66,7 +71,13 @@ async def chat_endpoint(
         "Received sync chat request: conversation_id=%s, tenant=%s, user=%s, provider=%s",
         request.conversation_id, x_tenant_id, x_user_id, request.provider
     )
-    
+
+    # Execute input guardrail pipeline (Prompt injection, PII redaction, Safety filter)
+    if request.messages:
+        last_msg = request.messages[-1]
+        guardrail_res = guardrail_pipeline.process_input(last_msg.content)
+        last_msg.content = guardrail_res.sanitized_text
+
     try:
         provider = LLMProviderFactory.get_provider(
             provider_name=request.provider,
@@ -77,20 +88,20 @@ async def chat_endpoint(
             temperature=request.temperature,
         )
 
+        # Execute output guardrail pipeline (Prompt leak check, PII redaction)
+        output_guardrail_res = guardrail_pipeline.process_output(llm_resp.content)
+
         logger.info("Successfully generated response for conversation_id=%s", request.conversation_id)
         return ChatResponse(
             conversation_id=request.conversation_id,
-            response=llm_resp.content,
+            response=output_guardrail_res.sanitized_text,
             tokens_used=llm_resp.tokens_used,
             provider=llm_resp.provider,
             model=llm_resp.model,
         )
     except ValueError as ve:
         logger.error("Invalid provider configuration in chat endpoint: %s", ve)
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as err:
-        logger.error("Error processing chat request for conversation %s: %s", request.conversation_id, err, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal chat processing error: {err}")
+        raise ValidationError(str(ve))
 
 
 @router.post("/stream")
@@ -116,46 +127,47 @@ async def stream_chat_endpoint(
         request.conversation_id, x_tenant_id, x_user_id, x_trace_id
     )
 
-    try:
-        trace_id = TracingContext.get_or_create_trace_id(x_trace_id)
-        AuditLogger().log(
-            tenant_id=x_tenant_id,
-            actor_id=x_user_id,
-            action="CHAT_STREAM_STARTED",
-            resource_type="CONVERSATION",
-            resource_id=request.conversation_id,
-            trace_id=trace_id,
-        )
+    trace_id = TracingContext.get_or_create_trace_id(x_trace_id)
+    AuditLogger().log(
+        tenant_id=x_tenant_id,
+        actor_id=x_user_id,
+        action="CHAT_STREAM_STARTED",
+        resource_type="CONVERSATION",
+        resource_id=request.conversation_id,
+        trace_id=trace_id,
+    )
 
-        graph = MultiAgentGraph()
-        user_instruction = request.messages[-1].content if request.messages else "Hello"
+    graph = MultiAgentGraph()
+    raw_user_instruction = request.messages[-1].content if request.messages else "Hello"
 
-        async def event_generator():
-            try:
-                async for event in graph.execute(
-                    conversation_id=request.conversation_id,
-                    tenant_id=x_tenant_id,
-                    user_id=x_user_id,
-                    user_role=x_user_role,
-                    user_acls=[],
-                    user_instruction=user_instruction,
-                ):
-                    event_type = event.get("event", "status")
-                    data = event.get("data", {})
-                    if isinstance(data, dict):
-                        data["trace_id"] = trace_id
-                    event_data = json.dumps(data)
-                    yield f"event: {event_type}\ndata: {event_data}\n\n"
-                    await asyncio.sleep(0.01)
-            except Exception as stream_err:
-                logger.error("Error during SSE stream execution for conversation %s: %s", request.conversation_id, stream_err, exc_info=True)
-                err_data = json.dumps({"error": str(stream_err), "trace_id": trace_id})
-                yield f"event: error\ndata: {err_data}\n\n"
+    # Input Guardrail Verification
+    g_input = guardrail_pipeline.process_input(raw_user_instruction)
+    user_instruction = g_input.sanitized_text
 
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
-    except Exception as err:
-        logger.error("Failed to initialize stream endpoint for conversation %s: %s", request.conversation_id, err, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to initiate stream: {err}")
+    async def event_generator():
+        try:
+            async for event in graph.execute(
+                conversation_id=request.conversation_id,
+                tenant_id=x_tenant_id,
+                user_id=x_user_id,
+                user_role=x_user_role,
+                user_acls=[],
+                user_instruction=user_instruction,
+            ):
+                event_type = event.get("event", "status")
+                data = event.get("data", {})
+                if isinstance(data, dict):
+                    data["trace_id"] = trace_id
+                event_data = json.dumps(data)
+                yield f"event: {event_type}\ndata: {event_data}\n\n"
+                await asyncio.sleep(0.01)
+        except Exception as stream_err:
+            logger.error("Error during SSE stream execution for conversation %s: %s", request.conversation_id, stream_err, exc_info=True)
+            err_data = json.dumps({"error": str(stream_err), "trace_id": trace_id})
+            yield f"event: error\ndata: {err_data}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 
 
 
