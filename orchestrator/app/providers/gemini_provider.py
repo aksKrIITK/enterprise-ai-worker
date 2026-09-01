@@ -20,11 +20,20 @@ class GeminiProvider(BaseLLMProvider):
         else:
             self.client = None
 
+    @property
+    def provider_name(self) -> str:
+        return "gemini"
+
+    @property
+    def model_name(self) -> str:
+        return self.model
+
     async def generate_response(
         self,
         messages: List[LLMMessage],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[dict]] = None,
     ) -> LLMResponse:
         if not self.client:
             return LLMResponse(
@@ -61,7 +70,7 @@ class GeminiProvider(BaseLLMProvider):
             mock_tokens = [
                 "[Mock Gemini SSE Stream]: ",
                 "Received message ",
-                f"'{messages[-1].content}'. ",
+                f"'{messages[-1].content if messages else ''}'. ",
                 "Gemini provider is successfully connected!",
             ]
             for token in mock_tokens:

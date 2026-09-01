@@ -39,10 +39,16 @@ class LLMProviderFactory:
         logger.info("Instantiating LLM provider '%s' (model: %s)", name, model or "default")
 
         if name == "openai":
-            return OpenAIProvider(api_key=api_key, model=model)
+            primary = OpenAIProvider(api_key=api_key, model=model)
+            fallback = GeminiProvider() if settings.GEMINI_API_KEY else None
         elif name == "gemini":
-            return GeminiProvider(api_key=api_key, model=model)
+            primary = GeminiProvider(api_key=api_key, model=model)
+            fallback = OpenAIProvider() if settings.OPENAI_API_KEY else None
         else:
             logger.error("Unsupported LLM provider requested: '%s'", provider_name)
             raise ValueError(f"Unsupported LLM provider: {provider_name}")
+
+        from app.providers.resiliency import ResilientLLMProvider
+        return ResilientLLMProvider(primary_provider=primary, fallback_provider=fallback)
+
 

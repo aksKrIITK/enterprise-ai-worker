@@ -1,11 +1,10 @@
-from typing import AsyncGenerator, List, Optional
+from typing import AsyncGenerator, List, Optional, Dict
 import os
 import logging
 from openai import AsyncOpenAI
 from app.providers.base import BaseLLMProvider, LLMMessage, LLMResponse
 from app.config import settings
 
-# Module logger
 logger = logging.getLogger(__name__)
 
 
@@ -24,11 +23,20 @@ class OpenAIProvider(BaseLLMProvider):
             self.client = None
             logger.info("Initialized OpenAIProvider in mock mode (no API key provided).")
 
+    @property
+    def provider_name(self) -> str:
+        return "openai"
+
+    @property
+    def model_name(self) -> str:
+        return self.model
+
     async def generate_response(
         self,
         messages: List[LLMMessage],
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[dict]] = None,
     ) -> LLMResponse:
         """
         Generates a chat response using OpenAI API, falling back to mock response on client missing or API failure.
@@ -45,13 +53,17 @@ class OpenAIProvider(BaseLLMProvider):
         try:
             formatted_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
             logger.debug("Calling OpenAI API chat completions with model '%s'", self.model)
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=formatted_messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
+            kwargs = {
+                "model": self.model,
+                "messages": formatted_messages,
+                "temperature": temperature,
+            }
+            if max_tokens:
+                kwargs["max_tokens"] = max_tokens
+            if tools:
+                kwargs["tools"] = tools
 
+            response = await self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content or ""
             tokens_used = response.usage.total_tokens if response.usage else 0
 
@@ -113,4 +125,3 @@ class OpenAIProvider(BaseLLMProvider):
             ]
             for token in mock_tokens:
                 yield token
-
