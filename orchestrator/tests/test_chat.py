@@ -34,3 +34,20 @@ def test_chat_endpoint_mock_gemini():
     assert data["conversation_id"] == "conv-456"
     assert "response" in data
     assert data["provider"] in ["gemini", "gemini-mock"]
+
+
+def test_chat_endpoint_mock_groq():
+    payload = {
+        "conversation_id": "conv-789",
+        "messages": [
+            {"role": "user", "content": "Hello Groq Agent"}
+        ],
+        "provider": "groq"
+    }
+    response = client.post("/api/v1/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["conversation_id"] == "conv-789"
+    assert "response" in data
+    assert data["provider"] in ["groq", "groq-mock"]
+

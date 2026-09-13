@@ -44,7 +44,7 @@ class OpenAIProvider(BaseLLMProvider):
         if not self.client:
             logger.debug("Generating response for message: %s", messages[-1].content if messages else "")
             return LLMResponse(
-                content=f"[Enterprise AI Orchestrator]: Processed input '{messages[-1].content if messages else ''}'. (Configure OPENAI_API_KEY in .env for live GPT completions)",
+                content=f"[Enterprise AI Orchestrator]: Processed input '{messages[-1].content if messages else ''}'. (Configure OpenAI API key in .env for live GPT completions)",
                 tokens_used=15,
                 provider="openai-mock",
                 model=self.model,
